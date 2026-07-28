@@ -368,11 +368,12 @@ def inspect(name, config):
 # Main run
 # ----------------------------------------------------------------------------
 
-def run(config, dry_run=False, backfill=False, only=None):
+def run(config, dry_run=False, backfill=False, only=None, quiet=False):
     conn = connect()
     conn.executescript(SCHEMA)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     emitted = []
+    totals = {"sources": 0, "found": 0, "new": 0, "errors": 0}
 
     for source in config["sources"]:
         if not source.get("enabled"):
@@ -429,9 +430,16 @@ def run(config, dry_run=False, backfill=False, only=None):
             (now, source["name"], found, new_count, error),
         )
 
+        totals["sources"] += 1
+        totals["found"] += found
+        totals["new"] += new_count
+        if error:
+            totals["errors"] += 1
+
         flag = "!" if error else " "
-        print(f"{flag} {source['name']:<38} found={found:<4} new={new_count:<4}"
-              f" {error or ''}", file=sys.stderr)
+        if not quiet or error or new_count:
+            print(f"{flag} {source['name']:<38} found={found:<4} new={new_count:<4}"
+                  f" {error or ''}", file=sys.stderr)
 
     if dry_run:
         conn.rollback()
@@ -441,11 +449,19 @@ def run(config, dry_run=False, backfill=False, only=None):
     conn.close()
 
     if backfill:
-        print("\nbackfill complete - existing articles marked as seen",
-              file=sys.stderr)
+        print(f"\nbackfill: {totals['sources']} sources, {totals['found']} articles"
+              f" marked as seen, {totals['errors']} errors", file=sys.stderr)
     else:
-        json.dump(emitted, sys.stdout, ensure_ascii=False, indent=2)
-        print()
+        print(f"\n{totals['sources']} sources | {totals['found']} articles listed"
+              f" | {totals['new']} new | {totals['errors']} errors", file=sys.stderr)
+        # Only dump JSON when it's going somewhere useful - a pipe or a file.
+        # Printing 150 articles into a terminal helps nobody.
+        if not quiet and not sys.stdout.isatty():
+            json.dump(emitted, sys.stdout, ensure_ascii=False, indent=2)
+            print()
+        elif emitted and sys.stdout.isatty():
+            print(f"({len(emitted)} new articles held back - redirect to a file"
+                  f" to capture them, e.g. > corpus.json)", file=sys.stderr)
     return emitted
 
 
@@ -459,6 +475,8 @@ def main():
     ap.add_argument("--backfill", action="store_true",
                     help="mark everything currently listed as already seen")
     ap.add_argument("--only", metavar="SOURCE_NAME", help="run a single source")
+    ap.add_argument("-q", "--quiet", action="store_true",
+                    help="only log sources with errors or new articles")
     ap.add_argument("--config", default=CONFIG)
     args = ap.parse_args()
 
@@ -473,7 +491,8 @@ def main():
         inspect(args.inspect, config)
         return
 
-    run(config, dry_run=args.dry_run, backfill=args.backfill, only=args.only)
+    run(config, dry_run=args.dry_run, backfill=args.backfill, only=args.only,
+        quiet=args.quiet)
 
 
 if __name__ == "__main__":
