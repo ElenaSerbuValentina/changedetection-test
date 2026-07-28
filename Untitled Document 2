@@ -1,0 +1,65 @@
+58 sources | 892 articles listed | 0 new | 30 errors
+[eserbu@CGNFLSV185 mi-agent]$ python3 extract.py --retry --limit 5
+schema: added text, text_chars, language, meta_date, meta_title, fetched_at, extract_note
+5 article(s) to process
+
+  [1/5] 15:07 PM Hollow Core Fiber: Prysmian and Relativity Networ     3925 chars 
+  [2/5] 07:07 AM - Price Sensitive Prysmian to accelerate data cen     4188 chars 
+  [3/5] 14:07 PM Prysmian Launches a New Master Program in Palermo     3273 chars 
+  [4/5] 14:07 PM Prysmian brings in new state-of-the-art burial to     2269 chars 
+? [5/5] 10:07 AM Prysmian's own shares transactions report - June        20 chars only 20 chars - likely a stub or consent wall
+
+empty: 1 | extracted: 4
+total extracted in database: 4
+[eserbu@CGNFLSV185 mi-agent]$ python3 extract.py --show prysmian
+        source: Prysmian - press releases
+         title: 15:07 PM Hollow Core Fiber: Prysmian and Relativity Networks deploy their highest density HCF cable to date
+    meta_title: Hollow Core Fiber: Prysmian and Relativity Networks deploy their highest density HCF cable to date | Prysmian
+           url: https://prysmian.com/en/media/press-releases/hollow-core-fiber-prysmian-and-relativity-networks-deploy-their-highest-density-hcf-cable-to-date
+      language: 
+ published_raw: Jul 22, 2026
+     meta_date: 2026-07-22
+        status: extracted
+    text_chars: 3925
+  extract_note: 
+
+--- text ---
+
+Hollow Core Fiber: Prysmian and Relativity Networks deploy their highest density HCF cable to date
+Testing confirms the reliable deployment of a hollow core fiber cable in DuraLine microducts
+Hollow Core Fiber (HCF) cables are available now for AI data center deployment
+Prysmian and Relativity Networks have reached a new milestone in the deployment of highdensity cable solutions incorporating Relativity Networks' ChronoCore™ hollow core fibers, successfully completing high-density cable deployment tests in collaboration with Dura-Line, a leading manufacturer of high-density polyethylene (HDPE) conduit solutions.
+Testing at Dura-Line’s flagship test facility in Clinton, Tennessee confirmed the reliable installation of a high-density cable incorporating Relativity Networks' ChronoCore™ hollow core fibers at jetting speeds of up to 350 ft/min—demonstrating the technology’s readiness of the solution for real-world deployment and marking a meaningful technical step forward for the development of cutting-edge AI optical infrastructure and data center networks.
+The cable, based on Prysmian's Sirocco™ cable architecture and incorporating Relativity Networks' ChronoCore™ hollow core fibers, combines Prysmian's expertise in high-density cable design and manufacturing with Relativity's breakthrough hollow core fiber technology. The solution delivers the expected optical performance while supporting the development of next-generation low-latency data center infrastructure.
+Srinivas Siripurapu, Chief Innovation and Sustainability Officer of Prysmian: “This milestone comes just 15 months after Prysmian’s partnership with Relativity Networks to industrialize hollow core fiber—and reflects Prysmian’s long-standing leadership in innovation. We worked closely with Relativity Networks and Dura-Line to achieve this important industry milestone to showcase the scalability and technological readiness of this innovative digital infrastructure.”
+Rodrigo Amezcua Correa, CTO of Relativity Networks: “A breakthrough fiber technology only matters if it can be manufactured, cabled, and deployed at scale - and this milestone proves that it can. Seeing ChronoCore™ HCF produced and installed while delivering the performance it was designed for – to enable the next generation of distributed AI – marks the transition from innovation to infrastructure. Together, Relativity Networks and Prysmian are accelerating the adoption of hollow core fiber for the low latency AI and data center networks of the future.”
+Prysmian is already scaling production of Relativity Network’s hollow core fiber, including investments in its Eindhoven facility, while its Claremont, North Carolina plant has successfully manufactured the cable with 24 hollow core fibers in a 10mm diameter cable, meeting customer attenuation requirements. This is an essential step forward for the major US data center market.
+“Dura-Line has been synonymous with innovation for over 50 years, and our global network of testing fac
+[eserbu@CGNFLSV185 mi-agent]$ sqlite3 -line articles.db "SELECT source, status, extract_note, fetch_url FROM articles WHERE status != 'extracted' LIMIT 5;"
+      source = Prysmian - press releases
+      status = empty
+extract_note = only 20 chars - likely a stub or consent wall
+   fetch_url = https://www.prysmian.com/en/media/press-releases/prysmian-own-shares-transactions-report-june-2026
+
+      source = Prysmian - press releases
+      status = new
+extract_note = 
+   fetch_url = https://www.prysmian.com/en/media/press-releases/prysmians-best-in-class-solutions-receive-third-party-validation-boost
+
+      source = Prysmian - press releases
+      status = new
+extract_note = 
+   fetch_url = https://www.prysmian.com/en/media/press-releases/eastern-green-link-2-sets-the-standard-for-recycled-copper-in-high-voltage-cables
+
+      source = Prysmian - press releases
+      status = new
+extract_note = 
+   fetch_url = https://www.prysmian.com/en/media/press-releases/prysmian-transpower-issues-notice-to-proceed-for-cook-strait-hvdc-link-upgrade
+
+      source = Prysmian - press releases
+      status = new
+extract_note = 
+   fetch_url = https://www.prysmian.com/en/media/press-releases/prysmian-secures-framework-agreement-in-greece-for-island-connections
+[eserbu@CGNFLSV185 mi-agent]$ 
+
+
