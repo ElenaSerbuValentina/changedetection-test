@@ -1,0 +1,146 @@
+{
+  "_comment": [
+    "One entry per source. 'kind' is either 'scrape' or 'rss'.",
+    "For scrape sources, selectors are CSS. 'item' is the repeating element;",
+    "'link', 'title' and 'date' are looked up INSIDE each item.",
+    "If 'title' is omitted, the link's own text is used.",
+    "Run  python3 ingest.py --inspect <name>  to help work out selectors for a new site.",
+    "Prysmian is confirmed working. The others are stubs - fill in selectors as you verify them."
+  ],
+
+  "sources": [
+    {
+      "name": "Prysmian - press releases",
+      "kind": "scrape",
+      "url": "https://www.prysmian.com/en/media/press-releases",
+      "enabled": true,
+      "item": "li.ct-module",
+      "link": "div.prys2-search-result__title a",
+      "title": "div.prys2-search-result__title a",
+      "date": "div.news-archive-date a"
+    },
+    {
+      "name": "Prysmian - news",
+      "kind": "scrape",
+      "url": "https://www.prysmian.com/en/media/news",
+      "enabled": true,
+      "item": "li.ct-module",
+      "link": "div.prys2-search-result__title a",
+      "title": "div.prys2-search-result__title a",
+      "date": "div.news-archive-date a"
+    },
+    {
+      "name": "TKF",
+      "kind": "scrape",
+      "url": "https://www.tkf.nl/en/news/latest-news",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "Furukawa Electric",
+      "kind": "scrape",
+      "url": "https://www.furukawaelectric.com/en/release/",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "Sumitomo Electric - EN",
+      "kind": "scrape",
+      "url": "https://sumitomoelectric.com/pr-news-articles",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "ZTT International",
+      "kind": "scrape",
+      "url": "https://www.zttgroup.com/news/57.html",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "Hengtong Group",
+      "kind": "scrape",
+      "url": "https://www.hengtonggroup.com/en/home/news/index.html",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "Hengtong Australia",
+      "kind": "scrape",
+      "url": "https://www.hengtongaustralia.com/news/Hengtong-Rus.jsp",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "XLCC",
+      "kind": "scrape",
+      "url": "https://www.xlcc.co.uk/news-and-insights/",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "Pfisterer",
+      "kind": "scrape",
+      "url": "https://www.pfisterer.com/en/newsroom",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "Hellenic Cables",
+      "kind": "scrape",
+      "url": "https://www.hellenic-cables.com/press-releases-events/",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+    {
+      "name": "Shanghai Qifan Cable",
+      "kind": "scrape",
+      "url": "http://www.qifancable.com/en/",
+      "enabled": false,
+      "item": "",
+      "link": "a",
+      "title": "",
+      "date": ""
+    },
+
+    {
+      "name": "Alert: cable laying vessel",
+      "kind": "rss",
+      "url": "PASTE_GOOGLE_ALERT_FEED_URL_HERE",
+      "enabled": false
+    },
+    {
+      "name": "Alert: submarine cable factory",
+      "kind": "rss",
+      "url": "PASTE_GOOGLE_ALERT_FEED_URL_HERE",
+      "enabled": false
+    }
+  ]
+}
