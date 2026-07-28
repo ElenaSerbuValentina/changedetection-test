@@ -425,15 +425,6 @@ def run(config, dry_run=False, backfill=False, only=None, quiet=False):
                 )
                 if cur.rowcount:
                     new_count += 1
-                else:
-                    # already known - fill in fetch_url if this row predates it
-                    conn.execute(
-                        "UPDATE articles SET fetch_url = ?"
-                        " WHERE url = ? AND (fetch_url IS NULL OR fetch_url = '')",
-                        (item.get("fetch_url") or item["url"], item["url"]),
-                    )
-                if cur.rowcount:
-                    new_count += 1
                     if not backfill:
                         emitted.append({
                             "url": item["url"],
@@ -442,6 +433,14 @@ def run(config, dry_run=False, backfill=False, only=None, quiet=False):
                             "published_raw": item["published_raw"],
                             "first_seen": now,
                         })
+                else:
+                    # Already known. Fill in fetch_url if this row was created
+                    # before that column existed. Not a new article.
+                    conn.execute(
+                        "UPDATE articles SET fetch_url = ?"
+                        " WHERE url = ? AND (fetch_url IS NULL OR fetch_url = '')",
+                        (item.get("fetch_url") or item["url"], item["url"]),
+                    )
 
         except Exception as e:
             error = f"{type(e).__name__}: {e}"
