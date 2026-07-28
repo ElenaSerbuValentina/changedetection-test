@@ -194,6 +194,8 @@ def canonical(url, base=None):
     url = unwrap_google(url)
     p = urllib.parse.urlsplit(url)
 
+    # Scheme is normalised for the dedup KEY only. The real URL is preserved
+    # separately in fetch_url, so http-only hosts still get fetched correctly.
     scheme = p.scheme.lower() or "https"
     netloc = p.netloc.lower()
     if netloc.startswith("www."):
@@ -201,6 +203,7 @@ def canonical(url, base=None):
     if (scheme == "https" and netloc.endswith(":443")) or \
        (scheme == "http" and netloc.endswith(":80")):
         netloc = netloc.rsplit(":", 1)[0]
+    scheme = "https"
 
     keep = [(k, v) for k, v in urllib.parse.parse_qsl(p.query)
             if not TRACKING_PARAMS.match(k)]
@@ -237,6 +240,7 @@ def extract_scrape(source, base_url, html):
 
         out.append({
             "url": canonical(href, base_url),
+            "fetch_url": urllib.parse.urljoin(base_url, href),
             "title": " ".join(title.split())[:500],
             "published_raw": date[:100],
         })
@@ -275,6 +279,7 @@ def extract_rss(source, base_url, xml_text):
         title = re.sub(r"<[^>]+>", "", title)
         out.append({
             "url": canonical(link, base_url),
+            "fetch_url": unwrap_google(urllib.parse.urljoin(base_url, link)),
             "title": " ".join(title.split())[:500],
             "published_raw": pub[:100],
         })
@@ -287,6 +292,7 @@ def extract_rss(source, base_url, xml_text):
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
     url           TEXT PRIMARY KEY,
+    fetch_url     TEXT,
     title         TEXT,
     source        TEXT NOT NULL,
     source_kind   TEXT,
@@ -371,6 +377,11 @@ def inspect(name, config):
 def run(config, dry_run=False, backfill=False, only=None, quiet=False):
     conn = connect()
     conn.executescript(SCHEMA)
+    # migrate older databases that predate fetch_url
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(articles)")}
+    if "fetch_url" not in cols:
+        conn.execute("ALTER TABLE articles ADD COLUMN fetch_url TEXT")
+        conn.commit()
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     emitted = []
     totals = {"sources": 0, "found": 0, "new": 0, "errors": 0}
@@ -404,12 +415,23 @@ def run(config, dry_run=False, backfill=False, only=None, quiet=False):
                     continue
                 cur = conn.execute(
                     "INSERT OR IGNORE INTO articles"
-                    " (url, title, source, source_kind, published_raw, first_seen, status)"
-                    " VALUES (?,?,?,?,?,?,?)",
-                    (item["url"], item["title"], source["name"],
+                    " (url, fetch_url, title, source, source_kind, published_raw,"
+                    "  first_seen, status)"
+                    " VALUES (?,?,?,?,?,?,?,?)",
+                    (item["url"], item.get("fetch_url") or item["url"],
+                     item["title"], source["name"],
                      source.get("kind", "scrape"), item["published_raw"], now,
                      "seen" if backfill else "new"),
                 )
+                if cur.rowcount:
+                    new_count += 1
+                else:
+                    # already known - fill in fetch_url if this row predates it
+                    conn.execute(
+                        "UPDATE articles SET fetch_url = ?"
+                        " WHERE url = ? AND (fetch_url IS NULL OR fetch_url = '')",
+                        (item.get("fetch_url") or item["url"], item["url"]),
+                    )
                 if cur.rowcount:
                     new_count += 1
                     if not backfill:
