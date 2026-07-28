@@ -116,12 +116,33 @@ def http_get(url, timeout=30):
         return ctype, raw.decode(charset, errors="replace")
 
 
+def toggle_www(url):
+    """https://x.com/a  <->  https://www.x.com/a"""
+    p = urllib.parse.urlsplit(url)
+    if p.netloc.startswith("www."):
+        netloc = p.netloc[4:]
+    else:
+        netloc = "www." + p.netloc
+    return urllib.parse.urlunsplit((p.scheme, netloc, p.path, p.query, p.fragment))
+
+
 def fetch_and_extract(url):
     """Return (status, payload_dict). Never raises."""
+    attempts = [url]
     try:
         ctype, downloaded = http_get(url)
     except urllib.error.HTTPError as e:
-        return "failed", {"extract_note": f"HTTP {e.code}"}
+        # A canonicalised URL may have had 'www.' stripped for dedup purposes;
+        # some hosts 404 without it. Try the other form before giving up.
+        if e.code in (404, 403):
+            alt = toggle_www(url)
+            attempts.append(alt)
+            try:
+                ctype, downloaded = http_get(alt)
+            except Exception:
+                return "failed", {"extract_note": f"HTTP {e.code} (tried both www forms)"}
+        else:
+            return "failed", {"extract_note": f"HTTP {e.code}"}
     except Exception as e:
         return "failed", {"extract_note": f"fetch error: {type(e).__name__}: {e}"}
 
@@ -184,7 +205,10 @@ def process(limit=None, retry=False, quiet=False):
 
     wanted = ("new", "failed", "empty") if retry else ("new",)
     placeholders = ",".join("?" * len(wanted))
-    sql = (f"SELECT url, title, source FROM articles WHERE status IN ({placeholders})"
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(articles)")}
+    fetch_col = "fetch_url" if "fetch_url" in cols else "url"
+    sql = (f"SELECT url, COALESCE(NULLIF({fetch_col},''), url) AS fetch_target,"
+           f" title, source FROM articles WHERE status IN ({placeholders})"
            " ORDER BY first_seen DESC")
     params = list(wanted)
     if limit:
@@ -203,14 +227,15 @@ def process(limit=None, retry=False, quiet=False):
 
     for i, row in enumerate(rows, 1):
         url = row["url"]
-        host = urllib.parse.urlsplit(url).netloc
+        target = row["fetch_target"]
+        host = urllib.parse.urlsplit(target).netloc
 
         wait = HOST_DELAY - (time.monotonic() - last_hit[host])
         if wait > 0:
             time.sleep(wait)
         last_hit[host] = time.monotonic()
 
-        status, payload = fetch_and_extract(url)
+        status, payload = fetch_and_extract(target)
         tally[status] += 1
 
         payload["fetched_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
