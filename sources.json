@@ -1,0 +1,420 @@
+{
+  "_comment": [
+    "One entry per source. 'kind' is either 'scrape' or 'rss'.",
+    "For scrape sources, selectors are CSS. 'item' is the repeating element;",
+    "'link', 'title' and 'date' are looked up INSIDE each item.",
+    "If 'title' is omitted, the link's own text is used.",
+    "Run  python3 ingest.py --inspect <name>  to help work out selectors for a new site.",
+    "Prysmian is confirmed working. The others are stubs - fill in selectors as you verify them."
+  ],
+  "sources": [
+    {
+      "name": "Prysmian - press releases",
+      "kind": "scrape",
+      "url": "https://www.prysmian.com/en/media/press-releases",
+      "enabled": true,
+      "item": "li.ct-module",
+      "link": "div.prys2-search-result__title a",
+      "title": "div.prys2-search-result__title a",
+      "date": "div.news-archive-date a"
+    },
+    {
+      "name": "Prysmian - news",
+      "kind": "scrape",
+      "url": "https://www.prysmian.com/en/media/news",
+      "enabled": true,
+      "item": "li.ct-module",
+      "link": "div.prys2-search-result__title a",
+      "title": "div.prys2-search-result__title a",
+      "date": "div.news-archive-date a"
+    },
+    {
+      "name": "TKF",
+      "kind": "scrape",
+      "url": "https://www.tkf.nl/en/news/latest-news",
+      "enabled": true,
+      "item": "div.news-item",
+      "link": "a.stretched-link",
+      "title": "p.h5",
+      "date": "p.h6"
+    },
+    {
+      "name": "Furukawa Electric",
+      "kind": "scrape",
+      "url": "https://www.furukawaelectric.com/en/release/",
+      "enabled": true,
+      "item": "li.m-link-news__item",
+      "link": "a.m-link",
+      "title": "span.m-link__text",
+      "date": "time.m-link-news__date"
+    },
+    {
+      "name": "Sumitomo Electric - EN",
+      "kind": "scrape",
+      "url": "https://sumitomoelectric.com/pr-news-articles",
+      "enabled": true,
+      "item": "div.m-prnews-row",
+      "link": "a.a-link",
+      "title": "a.a-link",
+      "date": "p.a-paragraph"
+    },
+    {
+      "name": "ZTT International",
+      "kind": "scrape",
+      "url": "https://www.zttgroup.com/news/57.html",
+      "enabled": true,
+      "item": "ul.n-list li",
+      "link": "h2 a",
+      "title": "h2 a",
+      "date": "div.date"
+    },
+    {
+      "name": "Hengtong Group",
+      "kind": "scrape",
+      "url": "https://www.hengtonggroup.com/en/home/news/index.html",
+      "enabled": true,
+      "item": "div.list_box.fix",
+      "link": "a",
+      "title": "h3.list_title",
+      "date": "div.list_time"
+    },
+    {
+      "name": "Hengtong Australia",
+      "kind": "scrape",
+      "url": "https://www.hengtongaustralia.com/news/Hengtong-Rus.jsp",
+      "enabled": true,
+      "item": "div.list_box.fix",
+      "link": "a",
+      "title": "h3.list_title",
+      "date": "div.list_time"
+    },
+    {
+      "name": "XLCC",
+      "kind": "scrape",
+      "url": "https://www.xlcc.co.uk/news-and-insights/",
+      "enabled": true,
+      "item": "a.item",
+      "link": "a.item",
+      "title": "h3.__name",
+      "date": "div._info"
+    },
+    {
+      "name": "Pfisterer",
+      "kind": "scrape",
+      "url": "https://www.pfisterer.com/en/newsroom",
+      "enabled": true,
+      "item": "div.row-content",
+      "link": "div.title a",
+      "title": "div.title a",
+      "date": ""
+    },
+    {
+      "name": "Hellenic Cables",
+      "kind": "scrape",
+      "url": "https://www.hellenic-cables.com/press-releases-events/",
+      "enabled": true,
+      "item": "article.post",
+      "link": "a.arpost__link__title",
+      "title": "h3[itemprop=name]",
+      "date": "div.arpost__date"
+    },
+    {
+      "name": "Shanghai Qifan Cable",
+      "kind": "scrape",
+      "url": "http://www.qifancable.com/en/about_qifan/corporate_newsletter/",
+      "enabled": true,
+      "item": "ul.news_list li",
+      "link": "a",
+      "title": "h1",
+      "date": "time"
+    },
+    {
+      "name": "Alert: cable laying vessel",
+      "kind": "rss",
+      "url": "PASTE_GOOGLE_ALERT_FEED_URL_HERE",
+      "enabled": false
+    },
+    {
+      "name": "Alert: submarine cable factory",
+      "kind": "rss",
+      "url": "PASTE_GOOGLE_ALERT_FEED_URL_HERE",
+      "enabled": false
+    },
+    {
+      "name": "Alert: Prysmian",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/14456815795379647421",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 青岛汉河电缆",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/14627872881050176573",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 电缆敷设船",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/15929221217298162611",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 海底电缆工厂",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/16124856606359394752",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 古河電気工業",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/18154087628891515225",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 亨通海底电缆",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3922568367890713426",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 中天科技海底电缆",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/9531816842614652256",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 上海起帆电缆",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3252451799663282007",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 해저 케이블 공장",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/8108976181410280192",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 케이블 포설선",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/8108976181410282341",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 일진전기",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3686540463523830096",
+      "enabled": true
+    },
+    {
+      "name": "Alert: 대한전선앤솔루션",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/6363544202432166454",
+      "enabled": true
+    },
+    {
+      "name": "Alert: كابل دوكاب",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3640850663551368085",
+      "enabled": true
+    },
+    {
+      "name": "Alert: السويدي اليكتريك",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/6363544202432166824",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Ελληνικά καλώδια",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/8060450009767203256",
+      "enabled": true
+    },
+    {
+      "name": "Alert: ZTT Submarine Cable & System",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/5307018461481794215",
+      "enabled": true
+    },
+    {
+      "name": "Alert: XLCC",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/8060450009767204567",
+      "enabled": true
+    },
+    {
+      "name": "Alert: TKF Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3480491167136214010",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Third line project canada HVDC Ontario",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/17554944416381275354",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Tele Fonika Kable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/17406796145591526659",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Taihan Cable & Solution",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/2244923350609436424",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Sumitomo",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/17553399682275844099",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Südkabel Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/7287140479296454254",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Submarine Cable factory",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3115301565732057717",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Shanghai Qifan Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/14265664912680644840",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Qingdao Hanhe Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/2871922588061910733",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Pfisterer accessories",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/14265664912680644826",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Nexans",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/17792628257979370177",
+      "enabled": true
+    },
+    {
+      "name": "Alert: NBO东方电缆",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/12677733900481491563",
+      "enabled": true
+    },
+    {
+      "name": "Alert: NBO Orient Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3821198037024310603",
+      "enabled": true
+    },
+    {
+      "name": "Alert: LS-VINA Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/14693403146296153856",
+      "enabled": true
+    },
+    {
+      "name": "Alert: LS 케이블앤시스템",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/6900653525183539600",
+      "enabled": true
+    },
+    {
+      "name": "Alert: LS Green Link",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/6543863504627075421",
+      "enabled": true
+    },
+    {
+      "name": "Alert: LS Eco Energy",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/12971630924706305860",
+      "enabled": true
+    },
+    {
+      "name": "Alert: LS Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3469703835985952490",
+      "enabled": true
+    },
+    {
+      "name": "Alert: JDR Cable Systems",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/17805814030604196758",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Iljin Electric Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/10708383030116057475",
+      "enabled": true
+    },
+    {
+      "name": "Alert: High temperature superconductors cable HTS",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3849330205925637320",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Brugg Kabel",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/13595859963486881184",
+      "enabled": true
+    },
+    {
+      "name": "Alert: cable factory",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/11426372340727267126",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Cáp LS",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/5537280664675024404",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Ducab cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/7683497123892416050",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Elsewedy Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/3410778258635269942",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Furukawa Electric cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/12351625989590477580",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Hellenic Cables",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/5325209210275724750",
+      "enabled": true
+    },
+    {
+      "name": "Alert: Hengtong Submarine Power Cable",
+      "kind": "rss",
+      "url": "https://www.google.com/alerts/feeds/08776910783689938894/4443001155386081040",
+      "enabled": true
+    }
+  ]
+}
