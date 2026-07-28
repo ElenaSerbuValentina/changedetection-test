@@ -20,16 +20,22 @@ Dependencies:
 """
 
 import argparse
+import gzip
 import os
 import sqlite3
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(HERE, "articles.db")
+
+UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
 # Be polite: minimum seconds between requests to the same host.
 HOST_DELAY = 2.0
@@ -37,8 +43,15 @@ MIN_TEXT_CHARS = 200
 
 try:
     import trafilatura
-except ImportError:
-    sys.exit("trafilatura not installed.\n  pip3 install --user trafilatura")
+except ImportError as e:
+    sys.exit(
+        f"Could not import trafilatura: {e}\n\n"
+        f"This interpreter is: {sys.executable}\n"
+        f"Install into THIS interpreter (not whatever 'pip3' points at):\n"
+        f"    {sys.executable} -m pip install --user trafilatura\n\n"
+        f"If the error above names a different module, trafilatura is installed\n"
+        f"but one of its dependencies is missing or broken - install that instead."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -79,24 +92,52 @@ def migrate(conn):
 # Extraction
 # ---------------------------------------------------------------------------
 
+def http_get(url, timeout=30):
+    """Fetch with a browser User-Agent.
+
+    trafilatura's own fetch_url() sends a 'trafilatura/x.y' User-Agent, which
+    many corporate sites reject outright. This is the same approach ingest.py
+    uses, which is already proven against these hosts.
+
+    Returns (content_type, text) or raises.
+    """
+    req = urllib.request.Request(url, headers={
+        "User-Agent": UA,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Encoding": "gzip",
+        "Accept-Language": "en,*;q=0.5",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read()
+        if resp.headers.get("Content-Encoding") == "gzip":
+            raw = gzip.decompress(raw)
+        ctype = (resp.headers.get("Content-Type") or "").lower()
+        charset = resp.headers.get_content_charset() or "utf-8"
+        return ctype, raw.decode(charset, errors="replace")
+
+
 def fetch_and_extract(url):
     """Return (status, payload_dict). Never raises."""
     try:
-        downloaded = trafilatura.fetch_url(url)
+        ctype, downloaded = http_get(url)
+    except urllib.error.HTTPError as e:
+        return "failed", {"extract_note": f"HTTP {e.code}"}
     except Exception as e:
         return "failed", {"extract_note": f"fetch error: {type(e).__name__}: {e}"}
 
-    if downloaded is None:
-        return "failed", {"extract_note": "fetch returned nothing (404, timeout, or blocked)"}
+    if not downloaded:
+        return "failed", {"extract_note": "empty response body"}
 
-    # trafilatura works on HTML only; PDFs and similar come back as noise.
-    head = downloaded.lstrip()[:512].lower()
-    if head.startswith("%pdf") or "%pdf-" in head[:64]:
+    # trafilatura handles HTML only. Flag anything else rather than feeding it junk.
+    if "pdf" in ctype or downloaded.lstrip()[:8].lower().startswith("%pdf"):
         return "failed", {"extract_note": "PDF - needs a separate reader"}
+    if ctype and "html" not in ctype and "xml" not in ctype and "text" not in ctype:
+        return "failed", {"extract_note": f"unsupported content-type: {ctype[:60]}"}
 
     try:
         result = trafilatura.extract(
             downloaded,
+            url=url,
             output_format="json",
             with_metadata=True,
             include_comments=False,
