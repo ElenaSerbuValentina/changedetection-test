@@ -22,6 +22,7 @@ Dependencies:
 import argparse
 import gzip
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -92,6 +93,18 @@ def migrate(conn):
 # Extraction
 # ---------------------------------------------------------------------------
 
+class _Redirect308(urllib.request.HTTPRedirectHandler):
+    """urllib's default handler covers 301/302/303/307 but not 308."""
+
+    def http_error_308(self, req, fp, code, msg, headers):
+        return self.http_error_301(req, fp, 301, msg, headers)
+
+    https_error_308 = http_error_308
+
+
+_OPENER = urllib.request.build_opener(_Redirect308)
+
+
 def http_get(url, timeout=30):
     """Fetch with a browser User-Agent.
 
@@ -99,21 +112,66 @@ def http_get(url, timeout=30):
     many corporate sites reject outright. This is the same approach ingest.py
     uses, which is already proven against these hosts.
 
-    Returns (content_type, text) or raises.
+    Returns (content_type, raw_bytes, charset) or raises.
+    Raw bytes rather than text, because PDFs must not be decoded.
     """
     req = urllib.request.Request(url, headers={
         "User-Agent": UA,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/pdf,*/*;q=0.8",
         "Accept-Encoding": "gzip",
         "Accept-Language": "en,*;q=0.5",
     })
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _OPENER.open(req, timeout=timeout) as resp:
         raw = resp.read()
         if resp.headers.get("Content-Encoding") == "gzip":
             raw = gzip.decompress(raw)
         ctype = (resp.headers.get("Content-Type") or "").lower()
         charset = resp.headers.get_content_charset() or "utf-8"
-        return ctype, raw.decode(charset, errors="replace")
+        return ctype, raw, charset
+
+
+def is_pdf(ctype, raw):
+    return "pdf" in ctype or raw[:5].lstrip()[:4] == b"%PDF"
+
+
+def pdf_to_text(raw):
+    """Extract text from PDF bytes. Returns (text, note)."""
+    try:
+        from pdfminer.high_level import extract_text as _pdf_text
+        from pdfminer.layout import LAParams
+    except ImportError:
+        return "", "PDF - pdfminer.six not installed"
+
+    try:
+        import io
+        import logging
+        # pdfminer is extremely chatty about malformed PDFs
+        logging.getLogger("pdfminer").setLevel(logging.ERROR)
+        text = _pdf_text(io.BytesIO(raw), laparams=LAParams())
+    except Exception as e:
+        return "", f"PDF unreadable: {type(e).__name__}"
+
+    # Collapse the ragged line breaks pdfminer produces from column layout,
+    # while keeping paragraph boundaries.
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    lines = [ln.strip() for ln in text.split("\n")]
+    return "\n".join(lines).strip(), ""
+
+
+def detect_language(text):
+    """Best-effort language tag. Optional dependency; empty string if absent."""
+    if not text:
+        return ""
+    try:
+        import py3langid
+    except ImportError:
+        return ""
+    try:
+        code, _ = py3langid.classify(text[:2000])
+        return code or ""
+    except Exception:
+        return ""
 
 
 def toggle_www(url):
@@ -128,17 +186,14 @@ def toggle_www(url):
 
 def fetch_and_extract(url):
     """Return (status, payload_dict). Never raises."""
-    attempts = [url]
     try:
-        ctype, downloaded = http_get(url)
+        ctype, raw, charset = http_get(url)
     except urllib.error.HTTPError as e:
         # A canonicalised URL may have had 'www.' stripped for dedup purposes;
         # some hosts 404 without it. Try the other form before giving up.
         if e.code in (404, 403):
-            alt = toggle_www(url)
-            attempts.append(alt)
             try:
-                ctype, downloaded = http_get(alt)
+                ctype, raw, charset = http_get(toggle_www(url))
             except Exception:
                 return "failed", {"extract_note": f"HTTP {e.code} (tried both www forms)"}
         else:
@@ -146,12 +201,35 @@ def fetch_and_extract(url):
     except Exception as e:
         return "failed", {"extract_note": f"fetch error: {type(e).__name__}: {e}"}
 
-    if not downloaded:
+    if not raw:
         return "failed", {"extract_note": "empty response body"}
 
-    # trafilatura handles HTML only. Flag anything else rather than feeding it junk.
-    if "pdf" in ctype or downloaded.lstrip()[:8].lower().startswith("%pdf"):
-        return "failed", {"extract_note": "PDF - needs a separate reader"}
+    # --- PDF path -----------------------------------------------------------
+    # Sumitomo and Furukawa publish many press releases as PDFs rather than
+    # HTML pages. Without this they are simply invisible to the pipeline.
+    if is_pdf(ctype, raw):
+        text, note = pdf_to_text(raw)
+        if not text:
+            return "failed", {"extract_note": note or "PDF produced no text"}
+        if len(text) < MIN_TEXT_CHARS:
+            return "empty", {
+                "text": text,
+                "text_chars": len(text),
+                "language": detect_language(text),
+                "extract_note": f"PDF, only {len(text)} chars - likely a scan",
+            }
+        return "extracted", {
+            "text": text,
+            "text_chars": len(text),
+            "language": detect_language(text),
+            "meta_date": "",
+            "meta_title": "",
+            "extract_note": "from PDF",
+        }
+
+    # --- HTML path ----------------------------------------------------------
+    downloaded = raw.decode(charset, errors="replace")
+
     if ctype and "html" not in ctype and "xml" not in ctype and "text" not in ctype:
         return "failed", {"extract_note": f"unsupported content-type: {ctype[:60]}"}
 
@@ -188,7 +266,10 @@ def fetch_and_extract(url):
     return "extracted", {
         "text": text,
         "text_chars": len(text),
-        "language": data.get("language") or "",
+        # trafilatura only runs its classifier when target_language is set, and
+        # that parameter also FILTERS - which would discard most of this corpus.
+        # So detect separately instead.
+        "language": detect_language(text),
         "meta_date": data.get("date") or "",
         "meta_title": (data.get("title") or "").strip()[:500],
         "extract_note": "",
