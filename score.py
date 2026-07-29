@@ -60,18 +60,34 @@ CATEGORIES = {
     "Project Awards", "New Factory / Factory Expansions", "M&A / JV / Divestment",
     "R&D / Product Management", "CLV / Installation News", "Legal / Security",
     "Sustainability / HSE / ESG", "Investor Relations / Finance",
-    "TSO / Developers", "Policy / Govt", "Market Reports", "Customer News",
-    "Vessels", "Products", "Other",
+    "TSO / Developers", "Policy / Govt", "Market Reports", "Customer news",
+    "Sustainability", "Vessels", "Products",
 }
 
+RELEVANCE_LEVELS = {"Relevant", "Potentially relevant", "Not relevant"}
+PRIORITIES = {"High", "Medium", "Low", "None"}
+SIGNALS = {"Positive", "Negative", "Mixed", "Neutral", "Unknown"}
+INFO_STATUS = {"Confirmed", "Preliminary", "Speculative", "Rumour", "Unknown"}
+ACTIONS = {"Escalate", "Include in daily digest", "Include in weekly digest",
+           "Analyst review", "Archive", "Discard"}
+
 EXTRA_COLUMNS = [
-    ("relevant", "INTEGER"),
+    ("relevance", "TEXT"),            # Relevant / Potentially relevant / Not relevant
+    ("relevant", "INTEGER"),          # derived 0/1, for easy filtering
     ("score", "INTEGER"),
-    ("category", "TEXT"),
-    ("secondary_category", "TEXT"),
+    ("priority", "TEXT"),
+    ("category", "TEXT"),             # primary category
+    ("categories", "TEXT"),           # up to three, comma separated
     ("companies", "TEXT"),
+    ("competitors", "TEXT"),
+    ("projects", "TEXT"),
+    ("regions", "TEXT"),
+    ("market_signal", "TEXT"),
+    ("information_status", "TEXT"),
+    ("recommended_action", "TEXT"),
     ("summary", "TEXT"),
-    ("reason", "TEXT"),
+    ("reason", "TEXT"),               # decision_reason
+    ("nkt_implication", "TEXT"),
     ("scored_at", "TEXT"),
     ("scorer", "TEXT"),
     ("prompt_version", "TEXT"),
@@ -157,38 +173,79 @@ def parse_verdict(raw):
     return json.loads(text[start:end + 1])
 
 
+def _pick(value, allowed, default):
+    v = (value or "").strip()
+    return v if v in allowed else default
+
+
+def _joinlist(value, limit=500):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        parts = [p.strip() for p in value.split(",")]
+    else:
+        parts = [str(p).strip() for p in value]
+    return ", ".join(p for p in parts if p)[:limit]
+
+
 def normalise(v):
-    """Coerce whatever the model returned into the shape the database expects."""
-    score = v.get("score", 0)
+    """Coerce whatever the model returned into the shape the database expects.
+
+    Small models drift: they invent categories, return "yes" instead of true,
+    and sometimes wrap numbers in strings. Anything unrecognised falls back to
+    a safe default rather than failing the whole article.
+    """
+    score = v.get("relevance_score", v.get("score", 0))
     try:
         score = max(0, min(100, int(float(score))))
     except (TypeError, ValueError):
         score = 0
 
-    relevant = v.get("relevant")
-    if isinstance(relevant, str):
-        relevant = relevant.strip().lower() in ("true", "yes", "1")
-    relevant = bool(relevant) if relevant is not None else score >= 50
+    relevance = _pick(v.get("relevance"), RELEVANCE_LEVELS, "")
+    if not relevance:
+        relevance = ("Relevant" if score >= 60
+                     else "Potentially relevant" if score >= 40
+                     else "Not relevant")
 
-    category = (v.get("category") or "").strip()
-    if category not in CATEGORIES:
-        category = "Other"
-    secondary = (v.get("secondary_category") or "").strip()
-    if secondary not in CATEGORIES:
-        secondary = ""
+    not_relevant = relevance == "Not relevant"
 
-    companies = v.get("companies") or []
-    if isinstance(companies, str):
-        companies = [c.strip() for c in companies.split(",") if c.strip()]
+    primary = (v.get("primary_category") or "").strip()
+    if primary not in CATEGORIES or not_relevant:
+        primary = "" if not_relevant else "Other"
+        if primary == "Other":
+            # 'Other' is not in the approved taxonomy - flag rather than invent
+            primary = ""
+
+    cats = v.get("categories") or []
+    if isinstance(cats, str):
+        cats = [c.strip() for c in cats.split(",")]
+    cats = [c for c in (str(x).strip() for x in cats) if c in CATEGORIES][:3]
+    if not_relevant:
+        cats = []
+    if primary and primary not in cats:
+        cats.insert(0, primary)
+        cats = cats[:3]
 
     return {
-        "relevant": 1 if relevant else 0,
+        "relevance": relevance,
+        "relevant": 0 if not_relevant else 1,
         "score": score,
-        "category": category,
-        "secondary_category": secondary,
-        "companies": ", ".join(str(c) for c in companies)[:500],
+        "priority": _pick(v.get("priority"), PRIORITIES,
+                          "None" if not_relevant else "Low"),
+        "category": primary,
+        "categories": ", ".join(cats),
+        "companies": _joinlist(v.get("companies")),
+        "competitors": _joinlist(v.get("competitors")),
+        "projects": _joinlist(v.get("projects")),
+        "regions": _joinlist(v.get("countries_or_regions")),
+        "market_signal": _pick(v.get("market_signal"), SIGNALS, "Unknown"),
+        "information_status": _pick(v.get("information_status"), INFO_STATUS,
+                                    "Unknown"),
+        "recommended_action": _pick(v.get("recommended_action"), ACTIONS,
+                                    "Discard" if not_relevant else "Analyst review"),
         "summary": (v.get("summary") or "").strip()[:2000],
-        "reason": (v.get("reason") or "").strip()[:500],
+        "reason": (v.get("decision_reason") or v.get("reason") or "").strip()[:500],
+        "nkt_implication": (v.get("nkt_implication") or "").strip()[:1000],
     }
 
 
@@ -264,8 +321,9 @@ def run(limit=None, rescore=False, dry_run=False, quiet=False):
                   file=sys.stderr)
             continue
 
-        tally["relevant" if verdict["relevant"] else "not relevant"] += 1
-        tally[verdict["category"]] += 1
+        tally[verdict["relevance"]] += 1
+        if verdict["category"]:
+            tally[verdict["category"]] += 1
 
         if not dry_run:
             verdict.update({"scored_at": now, "scorer": MODEL,
@@ -276,21 +334,28 @@ def run(limit=None, rescore=False, dry_run=False, quiet=False):
             conn.commit()
 
         if not quiet:
-            mark = "*" if verdict["relevant"] else " "
+            mark = {"Relevant": "*", "Potentially relevant": "~",
+                    "Not relevant": " "}[verdict["relevance"]]
             print(f"{mark} [{i}/{len(rows)}] {verdict['score']:>3}"
-                  f" {verdict['category'][:26]:<28}"
-                  f" {(row['title'] or '')[:44]}", file=sys.stderr)
+                  f" {verdict['priority']:<7}"
+                  f" {(verdict['category'] or '-')[:26]:<28}"
+                  f" {(row['title'] or '')[:40]}", file=sys.stderr)
             if dry_run:
-                print(f"        {verdict['summary'][:200]}", file=sys.stderr)
-                print(f"        reason: {verdict['reason'][:150]}\n",
-                      file=sys.stderr)
+                print(f"         reason: {verdict['reason'][:170]}", file=sys.stderr)
+                if verdict["summary"]:
+                    print(f"         {verdict['summary'][:200]}", file=sys.stderr)
+                if verdict["competitors"]:
+                    print(f"         competitors: {verdict['competitors'][:100]}",
+                          file=sys.stderr)
+                print("", file=sys.stderr)
 
     elapsed = time.monotonic() - started
     per = elapsed / max(len(rows), 1)
     print(f"\n{len(rows)} scored in {elapsed/60:.1f} min ({per:.1f}s each)",
           file=sys.stderr)
-    print(f"relevant: {tally['relevant']} | not relevant: "
-          f"{tally['not relevant']} | errors: {tally['error']}", file=sys.stderr)
+    print(f"Relevant: {tally['Relevant']} | Potentially: "
+          f"{tally['Potentially relevant']} | Not relevant: "
+          f"{tally['Not relevant']} | errors: {tally['error']}", file=sys.stderr)
     if dry_run:
         print("(dry run - nothing stored)", file=sys.stderr)
     conn.close()
@@ -302,11 +367,16 @@ def report():
 
     print("=== relevance ===")
     for r in conn.execute(
-            "SELECT relevant, COUNT(*) n, ROUND(AVG(score),1) avg_score"
+            "SELECT relevance, COUNT(*) n, ROUND(AVG(score),1) avg_score"
             " FROM articles WHERE scored_at IS NOT NULL AND scored_at != ''"
-            " GROUP BY relevant"):
-        label = "relevant" if r["relevant"] else "not relevant"
-        print(f"  {label:<14} {r['n']:>5}   avg score {r['avg_score']}")
+            " GROUP BY relevance ORDER BY avg_score DESC"):
+        print(f"  {(r['relevance'] or '?'):<22} {r['n']:>5}   avg score {r['avg_score']}")
+
+    print("\n=== priority ===")
+    for r in conn.execute(
+            "SELECT priority, COUNT(*) n FROM articles"
+            " WHERE relevant = 1 GROUP BY priority ORDER BY n DESC"):
+        print(f"  {(r['priority'] or '?'):<22} {r['n']:>5}")
 
     print("\n=== categories (relevant only) ===")
     for r in conn.execute(
@@ -337,12 +407,15 @@ def show(needle):
     if not row:
         sys.exit(f"no article matching {needle!r}")
     for k in ("source", "title", "url", "language", "published_raw", "status",
-              "relevant", "score", "category", "secondary_category",
-              "companies", "scorer", "prompt_version", "score_error"):
+              "relevance", "score", "priority", "category", "categories",
+              "companies", "competitors", "projects", "regions",
+              "market_signal", "information_status", "recommended_action",
+              "scorer", "prompt_version", "score_error"):
         if k in row.keys():
             print(f"{k:>18}: {row[k]}")
     print(f"\n{'summary':>18}: {row['summary'] or '(none)'}")
     print(f"{'reason':>18}: {row['reason'] or '(none)'}")
+    print(f"{'nkt_implication':>18}: {row['nkt_implication'] or '(none)'}")
     conn.close()
 
 
