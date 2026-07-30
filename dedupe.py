@@ -49,6 +49,14 @@ EXTRA_COLUMNS = [
     ("dup_of", "TEXT"),        # url of the primary article
     ("dup_score", "REAL"),     # similarity that triggered the match
     ("dup_checked", "TEXT"),   # timestamp, so we don't re-compare endlessly
+    # Columns this stage READS but does not own. They are normally created by
+    # score.py and publish.py, which run after this stage - so on a fresh
+    # database they do not exist yet and the query below would fail. Creating
+    # them here is harmless: every stage's migration is additive and idempotent.
+    ("scored_at", "TEXT"),
+    ("published_at", "TEXT"),
+    ("text", "TEXT"),
+    ("text_chars", "INTEGER"),
 ]
 
 # Words that carry no signal for matching headlines.
